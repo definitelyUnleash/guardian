@@ -58,29 +58,13 @@ const server = app.listen(PORT, () => {
 const wss = new WebSocket.Server({ server });
 
 wss.on('connection', (ws) => {
-    console.log('New client connected');
-    const pingInterval = setInterval(() => {
-        if (ws.readyState === WebSocket.OPEN) ws.ping();
-    }, 30000); // Ping every 30 seconds
-
-    ws.on('close', () => clearInterval(pingInterval)); // Cleanup on disconnect
-});
-
+  console.log('New client connected');
   
   // Handle binary frames from ESP32
-ws.on('message', (data, isBinary) => {
-    if (isBinary) {
-        console.log(`Received binary data (${data.length} bytes)`);
-        // Broadcast to all connected clients
-        wss.clients.forEach(client => {
-            if (client.readyState === WebSocket.OPEN) {
-                client.send(data, { binary: true });
-            }
-        });
-    } else {
-        console.log(`Unexpected text data: ${data.toString()}`);
-    }
-});
+  ws.on('message', (data, isBinary) => {
+    if (isBinary) console.log(`Frame size: ${data.length} bytes`);
+    else console.log("Unexpected text frame:", data.toString());
+  });
 
   // Heartbeat
   const pingInterval = setInterval(() => {
