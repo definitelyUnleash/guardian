@@ -1,16 +1,12 @@
 {
-  "name": "websocket-server",
+  "name": "esp32-websocket",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node server.js"  // ← Critical for Railway
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
   "dependencies": {
-    "express": "^5.1.0",
-    "ws": "^8.18.1"
+    "express": "^4.18.2",
+    "ws": "^8.13.0"
   }
 }
