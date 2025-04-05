@@ -61,17 +61,10 @@ wss.on('connection', (ws) => {
   console.log('New client connected');
   
   // Handle binary frames from ESP32
-  ws.on('message', (data, isBinary) => {
-    if (isBinary) {
-      // Broadcast to all other clients (browsers)
-      wss.clients.forEach(client => {
-        if (client !== ws && client.readyState === WebSocket.OPEN) {
-          client.send(data, { binary: true });
-        }
-      });
-    }
-  });
-
+ws.on('message', (data, isBinary) => {
+  if (isBinary) console.log(`Frame size: ${data.length} bytes`);
+  else console.log("Unexpected text frame:", data.toString());
+});
   // Heartbeat
   const pingInterval = setInterval(() => {
     if (ws.readyState === WebSocket.OPEN) ws.ping();
