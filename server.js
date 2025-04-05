@@ -10,17 +10,6 @@ app.get('/', (req, res) => {
     <html>
     <head>
       <title>ESP32-CAM Stream</title>
-      <style>
-        #video-feed {
-          max-width: 100%;
-          transform: rotate(0deg); /* Fix rotation if needed */
-        }
-      </style>
-    </head>
-    <body>
-      <h1>ESP32-CAM Live Stream</h1>
-      <img id="video-feed" src="" alt="Live Feed">
-      
       <script>
         const ws = new WebSocket('wss://' + window.location.host);
         const videoFeed = document.getElementById('video-feed');
@@ -45,6 +34,16 @@ app.get('/', (req, res) => {
           }
         };
       </script>
+      <style>
+        #video-feed {
+          max-width: 100%;
+          transform: rotate(0deg); /* Fix rotation if needed */
+        }
+      </style>
+    </head>
+    <body>
+      <h1>ESP32-CAM Live Stream</h1>
+      <img id="video-feed" src="" alt="Live Feed">
     </body>
     </html>
   `);
