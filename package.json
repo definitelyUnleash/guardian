@@ -1,5 +1,5 @@
 {
-  "name": "esp32-websocket",
+  "name": "websocket-server",
   "version": "1.0.0",
   "main": "server.js",
   "scripts": {
