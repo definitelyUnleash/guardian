@@ -1,73 +1,59 @@
-const express = require("express");
-const http = require("http");
-const WebSocket = require("ws");
+const http = require('http');
+const WebSocket = require('ws');
 
-const app = express();
-const server = http.createServer(app);
+// ==== HTML Template Served on GET Request ====
+const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <title>ESP32-CAM Stream</title>
+  <style>
+    body { background: #111; color: #eee; text-align: center; }
+    img { max-width: 100%; border: 4px solid #fff; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <h1>ESP32-CAM Live Stream</h1>
+  <img id="stream" />
+  <script>
+    const img = document.getElementById("stream");
+    const socket = new WebSocket("ws://" + location.host);
+    socket.binaryType = "arraybuffer";
+    socket.onmessage = (event) => {
+      const blob = new Blob([event.data], { type: "image/jpeg" });
+      img.src = URL.createObjectURL(blob);
+    };
+  </script>
+</body>
+</html>
+`;
+
+// ==== HTTP Server to Serve HTML ====
+const server = http.createServer((req, res) => {
+  res.writeHead(200, {'Content-Type': 'text/html'});
+  res.end(html);
+});
+
+// ==== WebSocket Server ====
 const wss = new WebSocket.Server({ server });
 
-let latestImageBuffer = null;
+wss.on('connection', ws => {
+  console.log('Client connected to WebSocket');
 
-// WebSocket server logic
-wss.on("connection", function connection(ws) {
-  console.log("Client connected via WebSocket");
-
-  // Send latest image buffer to new clients
-  if (latestImageBuffer) {
-    ws.send(latestImageBuffer);
-  }
-
-  ws.on("message", function incoming(data) {
-    // Expecting binary JPEG frame from ESP32-CAM
-    if (Buffer.isBuffer(data)) {
-      latestImageBuffer = data;
-
-      // Broadcast to all browser clients
-      wss.clients.forEach(function each(client) {
-        if (client !== ws && client.readyState === WebSocket.OPEN) {
-          client.send(data);
-        }
-      });
-    }
+  ws.on('message', message => {
+    // Broadcast to all browser clients
+    wss.clients.forEach(client => {
+      if (client !== ws && client.readyState === WebSocket.OPEN) {
+        client.send(message);
+      }
+    });
   });
 
-  ws.on("close", () => {
-    console.log("Client disconnected");
-  });
+  ws.on('close', () => console.log('Client disconnected'));
 });
 
-// Start the server
+// ==== Start Server ====
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log("Server running on port", PORT);
-});
-
-// Serve HTML directly from this JS file
-app.get("/", (req, res) => {
-  res.send(`
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <title>ESP32-CAM Stream</title>
-      <style>
-        body { font-family: sans-serif; background: #121212; color: white; text-align: center; }
-        img { width: 80%; margin-top: 20px; border-radius: 12px; box-shadow: 0 0 12px rgba(0,0,0,0.6); }
-        h1 { margin-top: 40px; }
-      </style>
-    </head>
-    <body>
-      <h1>ESP32-CAM Live Stream</h1>
-      <img id="stream" src="" alt="Waiting for stream...">
-      <script>
-        const ws = new WebSocket("wss://" + location.host);
-        const img = document.getElementById("stream");
-        ws.binaryType = "arraybuffer";
-        ws.onmessage = (event) => {
-          const blob = new Blob([event.data], { type: 'image/jpeg' });
-          img.src = URL.createObjectURL(blob);
-        };
-      </script>
-    </body>
-    </html>
-  `);
+  console.log(`Server running at http://localhost:${PORT}`);
 });
