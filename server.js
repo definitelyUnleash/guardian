@@ -1,78 +1,73 @@
-const express = require('express');
-const WebSocket = require('ws');
-const app = express();
-const PORT = process.env.PORT || 3000;
+const express = require("express");
+const http = require("http");
+const WebSocket = require("ws");
 
-// HTTP server
-app.get('/', (req, res) => {
+const app = express();
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ server });
+
+let latestImageBuffer = null;
+
+// Serve HTML directly from this JS file
+app.get("/", (req, res) => {
   res.send(`
     <!DOCTYPE html>
     <html>
     <head>
       <title>ESP32-CAM Stream</title>
-      <script>
-        const ws = new WebSocket('wss://' + window.location.host);
-        const videoFeed = document.getElementById('video-feed');
-        let frameCount = 0;
-        
-        ws.onopen = () => console.log('Connected to WebSocket');
-        ws.onerror = (err) => console.error('WebSocket error:', err);
-        
-        ws.onmessage = (event) => {
-          if (event.data instanceof Blob) {
-            // Create object URL from binary frame
-            const url = URL.createObjectURL(event.data);
-            
-            // Update image source and revoke previous URL
-            videoFeed.onload = () => URL.revokeObjectURL(url);
-            videoFeed.src = url;
-            
-            // Debug log every 10 frames
-            if (frameCount++ % 10 === 0) {
-              console.log('Received frame', frameCount);
-            }
-          }
-        };
-      </script>
       <style>
-        #video-feed {
-          max-width: 100%;
-          transform: rotate(0deg); /* Fix rotation if needed */
-        }
+        body { font-family: sans-serif; background: #121212; color: white; text-align: center; }
+        img { width: 80%; margin-top: 20px; border-radius: 12px; box-shadow: 0 0 12px rgba(0,0,0,0.6); }
+        h1 { margin-top: 40px; }
       </style>
     </head>
     <body>
       <h1>ESP32-CAM Live Stream</h1>
-      <img id="video-feed" src="" alt="Live Feed">
+      <img id="stream" src="" alt="Waiting for stream...">
+      <script>
+        const ws = new WebSocket("wss://" + location.host);
+        const img = document.getElementById("stream");
+        ws.binaryType = "arraybuffer";
+        ws.onmessage = (event) => {
+          const blob = new Blob([event.data], { type: 'image/jpeg' });
+          img.src = URL.createObjectURL(blob);
+        };
+      </script>
     </body>
     </html>
   `);
 });
 
-// WebSocket Server
-const server = app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`ESP32-CAM should connect to: wss://${process.env.RAILWAY_PUBLIC_DOMAIN || 'localhost:' + PORT}`);
+// WebSocket server logic
+wss.on("connection", function connection(ws) {
+  console.log("Client connected via WebSocket");
+
+  // Send latest image buffer to new clients
+  if (latestImageBuffer) {
+    ws.send(latestImageBuffer);
+  }
+
+  ws.on("message", function incoming(data) {
+    // Expecting binary JPEG frame from ESP32-CAM
+    if (Buffer.isBuffer(data)) {
+      latestImageBuffer = data;
+
+      // Broadcast to all browser clients
+      wss.clients.forEach(function each(client) {
+        if (client !== ws && client.readyState === WebSocket.OPEN) {
+          client.send(data);
+        }
+      });
+    }
+  });
+
+  ws.on("close", () => {
+    console.log("Client disconnected");
+  });
 });
 
-const wss = new WebSocket.Server({ server });
-
-wss.on('connection', (ws) => {
-  console.log('New client connected');
-  
-  // Handle binary frames from ESP32
-  ws.on('message', (data, isBinary) => {
-    if (isBinary) console.log(`Frame size: ${data.length} bytes`);
-    else console.log("Unexpected text frame:", data.toString());
-  });
-
-  // Heartbeat
-  const pingInterval = setInterval(() => {
-    if (ws.readyState === WebSocket.OPEN) ws.ping();
-  }, 30000);
-
-  ws.on('close', () => {
-    clearInterval(pingInterval);
-    console.log('Client disconnected');
-  });
+// Start the server
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log("Server running on port", PORT);
 });
